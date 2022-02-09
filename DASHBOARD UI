@@ -1,0 +1,45 @@
+library(tidyverse)
+#The project is focused on a spanish speaking audience.
+
+shinyUI(
+    fluidPage(padding=5,
+        titlePanel("Calculadora de precios pasados actualizados a valor presente (2022)"),
+        sidebarLayout(
+          mainPanel(plotOutput("linea_salario", hover = hoverOpts("hover_salario")),
+                    uiOutput("hover_info"),
+                    sliderInput("rango_fechas",label = "Escoja un rango a visualizar",
+                                min = as.Date("1996-01-01","%Y-%m-%d"),max = as.Date("2022-01-01","%Y-%m-%d"),
+                                value=as.Date(c("1996-01-01","2022-01-01")),timeFormat="%Y-%m-%d",
+                                step = 365.24,width = "100%")
+                    ),
+          sidebarPanel(selectInput("salario_linea",label = "Líneas de tiempo de evolución del salario mínimo",
+                                   choices = c("Evolución sin inflación","Evolución con inflación", 
+                                               "Evolución diferenciando alimento y transporte", 
+                                               "Inflación general vs. Inflación diferenciando alimento y transporte",
+                                               "Todas")),
+                       h4(strong("Calculadora de valores pasados a presentes")),
+                       p("Conoce a cuánto equivale en 2022 una suma de dinero de años anteriores 
+                         (por ejemplo, un pasaje de bus a 1400 pesos en 2010, hoy serían 2190)",
+                         style = "font-size:12px;"),
+                       selectInput("ano_futuro",label = "Año para convertir",
+                                   choices = c("2021","2020","2019","2018","2017","2016","2015","2014",
+                                               "2013","2012","2011","2010","2009","2008","2007","2006","2005","2004","2003",
+                                               "2002","2001","2000")),
+                       numericInput("valor_futuro",label = "Ingrese la suma que desea convertir a valores de 2022",
+                                    value=0),
+                       verbatimTextOutput("valor_convertido"),
+                       h4(strong("Calculadora de valores presentes a pasados")),
+                       p("En el pasado, menos dinero compraba más, esto porque la inflación quita 
+                         valor al dinero. Convierte una cantidad de dinero en 2022 a su equivalente 
+                         para el año escogido.", style = "font-size:12px;"),
+                       selectInput("ano_pasado",label = "Año para convertir",
+                                   choices = c("2021","2020","2019","2018","2017","2016","2015","2014",
+                                               "2013","2012","2011","2010","2009","2008","2007","2006",
+                                               "2005","2004","2003","2002","2001","2000")),
+                       numericInput("valor_pasado",label = "Ingrese la suma de 2022 que desea convertir a los valores del año escogido",value=0),
+                       verbatimTextOutput("conversion_pasado")
+                       ) 
+          
+            )
+            )
+  )

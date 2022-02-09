@@ -1,0 +1,203 @@
+library(tidyverse)
+
+
+shinyServer(function(input,output){
+  options(scipen = 100000)
+  
+  salario_minimo <- read.csv("https://www.dropbox.com/s/a2rhmriid4g42vl/salariominimo.csv?dl=1")
+  salario_minimo$ano <- as.Date(salario_minimo$ano,"%d/%m/%Y")
+  salario_minimo$ano2 <- as.integer(format(salario_minimo$ano, "%Y"))
+  salario_minimo$valor_real <- round(salario_minimo$valor_real)
+  salario_minimo2 <- salario_minimo %>% select(ano,valor_real,valor_real_diferenciado) %>% gather(key = "Linea",value = "valor",-ano) %>% drop_na("valor") %>% mutate(valor = round(valor))
+  salario_minimo3 <- salario_minimo %>% select(ano,valor,valor_real,valor_real_diferenciado) %>% gather(key = "Linea",value = "valor",-ano) %>% drop_na("valor") %>% mutate(valor = round(valor))
+  
+  observeEvent(input$ano_futuro,{
+  salario_minimo3 <- subset(salario_minimo,ano2 >= input$ano_futuro)
+  output$valor_convertido <- renderText({input$valor_futuro*prod(salario_minimo3$valor2021)})
+  }
+  )
+  
+  observeEvent(input$ano_pasado,{
+    salario_minimo4 <- subset(salario_minimo,ano2 >= input$ano_pasado)
+    output$conversion_pasado <- renderText({input$valor_pasado/prod(salario_minimo4$valor2021)})
+  }
+  )
+  
+    
+  
+  observeEvent(input$rango_fechas,{
+    
+    salario_minimo <- subset(salario_minimo, ano >= min(input$rango_fechas) & ano <= max(input$rango_fechas))             
+    
+    observeEvent(input$salario_linea, {
+  
+    if(input$salario_linea == "Evolución sin inflación") {
+      output$linea_salario <- renderPlot({ggplot(salario_minimo,aes(x=ano,y=valor,label=valor))+
+          geom_line(color="#4fd43a",size=0.9)+geom_point(size=3,color="darkgreen")+
+          xlim(min(input$rango_fechas),max(input$rango_fechas))+xlab("Fechas")+ylab("Salario mínimo a valor presente")+
+          ylim(min(salario_minimo$valor),max(salario_minimo$valor))+
+          ggtitle("Valores del salario mínimo colombiano desde 1996 hasta 2022")+
+          labs(caption = "Deslice el cursor sobre los puntos para desplegar la información")
+                    })
+      output$hover_info <- renderUI({
+        hover <- input[["hover_salario"]]
+        if(is.null(hover)) return(NULL)
+        punto <- nearPoints(salario_minimo, hover,threshold = 7, maxpoints = 1)
+        if(nrow(punto) == 0) return(NULL)
+        left_px <- hover$coords_css$x
+        top_px  <- hover$coords_css$y
+        style <- paste0(
+          "position:absolute; z-index:100; pointer-events:none; ", 
+          "background-color: rgba(245, 245, 245, 0.85); ",
+          "left:", left_px, 
+          "px; top:", top_px, "px;"
+        )
+        tooltip <- paste0(
+          "<b> Salario: </b>",     punto[["valor"]],     "<br/>",
+          "<b> Fecha: </b>", punto[["ano"]], "<br/>"
+        )
+        wellPanel(
+          style = style, p(HTML(tooltip))
+        )
+      })
+                                         }
+    
+    if(input$salario_linea == "Evolución con inflación") {
+      output$linea_salario <- renderPlot({ggplot(salario_minimo,aes(x=ano,y=valor_real,label=valor_real))+
+          geom_line(size=0.9,color="#3a50d4")+geom_point(size = 3, color="darkblue")+
+          xlim(min(input$rango_fechas),max(input$rango_fechas))+xlab("Fechas")+ylab("Salario mínimo a valor presente")+
+          ylim(min(salario_minimo$valor_real),max(salario_minimo$valor_real))+
+          ggtitle("Valores del salario mínimo colombiano desde 1996 hasta 2022 (ajustado a inflación)")+
+          labs(caption = "Deslice el cursor sobre los puntos para desplegar la información")
+        })
+      output$hover_info <- renderUI({
+        hover <- input[["hover_salario"]]
+        if(is.null(hover)) return(NULL)
+        punto <- nearPoints(salario_minimo, hover,threshold = 7, maxpoints = 1)
+        if(nrow(punto) == 0) return(NULL)
+        left_px <- hover$coords_css$x
+        top_px  <- hover$coords_css$y
+        style <- paste0(
+          "position:absolute; z-index:100; pointer-events:none; ", 
+          "background-color: rgba(245, 245, 245, 0.85); ",
+          "left:", left_px, 
+          "px; top:", top_px, "px;"
+        )
+        tooltip <- paste0(
+          "<b> Salario en 2022: </b>",     punto[["valor_real"]],     "<br/>",
+          "<b> Fecha: </b>", punto[["ano"]], "<br/>"
+        )
+        wellPanel(
+          style = style, p(HTML(tooltip))
+        )
+      })
+    }
+      
+      if(input$salario_linea == "Evolución diferenciando alimento y transporte") {
+        output$linea_salario <- renderPlot({ggplot(salario_minimo,aes(x=ano,y=valor_real_diferenciado,label=valor_real_diferenciado))+
+            geom_line(size=0.9,color="#D43a45")+geom_point(size=3,color="darkred")+
+            xlim(min(input$rango_fechas),max(input$rango_fechas))+xlab("Fechas")+ylab("Salario mínimo ajustado (diferenciando inflación por alimento y transporte)")+
+            ylim(min(salario_minimo$valor_real_diferenciado),max(salario_minimo$valor_real_diferenciado))+
+            ggtitle("Valores del salario mínimo colombiano desde 1996 hasta 2022 (ajustado a inflación por alimento y transporte)")+
+            labs(caption = "Deslice el cursor sobre los puntos para desplegar la información. \n(La ponderación es 15% a transporte, 50% a alimentación y 35% a resto de gastos).")
+        })
+        output$hover_info <- renderUI({
+          hover <- input[["hover_salario"]]
+          if(is.null(hover)) return(NULL)
+          punto <- nearPoints(salario_minimo, hover,threshold = 7, maxpoints = 1)
+          if(nrow(punto) == 0) return(NULL)
+          left_px <- hover$coords_css$x
+          top_px  <- hover$coords_css$y
+          style <- paste0(
+            "position:absolute; z-index:100; pointer-events:none; ", 
+            "background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px, 
+            "px; top:", top_px, "px;"
+          )
+          tooltip <- paste0(
+            "<b> Salario en 2022: </b>",     punto[["valor_real_diferenciado"]],     "<br/>",
+            "<b> Fecha: </b>", punto[["ano"]], "<br/>"
+          )
+          wellPanel(
+            style = style, p(HTML(tooltip))
+          )
+        })
+      }
+    
+    if(input$salario_linea == "Todas") {
+      output$linea_salario <- renderPlot({ggplot(salario_minimo3,aes(x=ano,y=valor,label=valor,color=Linea))+
+          geom_line(size=0.9)+geom_point(size=3)+
+          scale_color_discrete(labels=c("Valor en el pasado","Valor equivalente en 2022","Valor con inflación diferenciada para alimento y transp."))+
+          ylab("Valor en pesos colombianos para 2022")+xlab("Fecha")+
+          xlim(min(input$rango_fechas),max(input$rango_fechas))+
+          ylim(min(salario_minimo3$valor),max(salario_minimo3$valor))+
+          ggtitle("Valores del salario mínimo colombiano desde 1996 hasta 2022")+
+          labs(caption = "Deslice el cursor sobre los puntos para desplegar la información. \n(La ponderación es 15% a transporte, 50% a alimentación y 35% a resto de gastos en la línea diferenciada)."
+                 )
+        })
+      output$hover_info <- renderUI({
+        hover <- input[["hover_salario"]]
+        if(is.null(hover)) return(NULL)
+        punto <- nearPoints(salario_minimo3, yvar = "valor",hover,threshold = 7, maxpoints = 1)
+        if(nrow(punto) == 0) return(NULL)
+        left_px <- hover$coords_css$x
+        top_px  <- hover$coords_css$y
+        style <- paste0(
+          "position:absolute; z-index:100; pointer-events:none; ", 
+          "background-color: rgba(245, 245, 245, 0.85); ",
+          "left:", left_px, 
+          "px; top:", top_px, "px;"
+        )
+        tooltip <- paste0(
+          "<b> Salario: </b>",     punto[["valor"]],     "<br/>",
+          "<b> Fecha: </b>", punto[["ano"]], "<br/>"
+        )
+        wellPanel(
+          style = style, p(HTML(tooltip))
+        )
+      })
+    }
+  
+      if(input$salario_linea == "Inflación general vs. Inflación diferenciando alimento y transporte") {
+        output$linea_salario <- renderPlot({ggplot(salario_minimo2,aes(x=ano,y=valor,label=valor,color=Linea))+
+            geom_line(size=0.9)+geom_point(size=3)+
+            scale_color_discrete(labels=c("Valor equivalente inflación general","Valor con inflación diferenciada para alimento y transp."))+
+            ylab("Valor en pesos colombianos para 2022")+xlab("Fecha")+
+            xlim(min(input$rango_fechas),max(input$rango_fechas))+
+            ylim(min(salario_minimo2$valor),max(salario_minimo2$valor))+
+            ggtitle("Valores del salario mínimo colombiano desde 1996 hasta 2022")+
+            labs(caption = "Deslice el cursor sobre los puntos para desplegar la información.\n(La ponderación es 15% a transporte, 50% a alimentación y 35% a resto de gastos enla línea diferenciada).")
+        })
+        output$hover_info <- renderUI({
+          hover <- input[["hover_salario"]]
+          if(is.null(hover)) return(NULL)
+          punto <- nearPoints(salario_minimo3, yvar = "valor",hover,threshold = 7, maxpoints = 1)
+          if(nrow(punto) == 0) return(NULL)
+          left_px <- hover$coords_css$x
+          top_px  <- hover$coords_css$y
+          style <- paste0(
+            "position:absolute; z-index:100; pointer-events:none; ", 
+            "background-color: rgba(245, 245, 245, 0.85); ",
+            "left:", left_px, 
+            "px; top:", top_px, "px;"
+          )
+          tooltip <- paste0(
+            "<b> Salario: </b>",     punto[["valor"]],     "<br/>",
+            "<b> Fecha: </b>", punto[["ano"]], "<br/>"
+          )
+          wellPanel(
+            style = style, p(HTML(tooltip))
+          )
+        })
+      } 
+      
+        
+  })
+  
+  })
+  
+  })
+  
+
+
+
